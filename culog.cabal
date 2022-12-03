@@ -7,32 +7,48 @@ cabal-version: 1.12
 name:           culog
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/culog#readme>
-homepage:       https://github.com/githubuser/culog#readme
-bug-reports:    https://github.com/githubuser/culog/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2022 Author name here
-license:        BSD3
+homepage:       https://github.com/eashanhatti/culog#readme
+bug-reports:    https://github.com/eashanhatti/culog/issues
+author:         Eashan Hatti
+maintainer:     eashanhatti@gmail.com
+copyright:      2022 Eashan Hatti
+license:        MPL-2.0
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    CHANGELOG.md
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/culog
+  location: https://github.com/eashanhatti/culog
 
 library
   exposed-modules:
-      Lib
+      Norm
+      Parse
+      Prove
+      Syntax.Core
+      Syntax.Raw
+      Syntax.Semantic
   other-modules:
       Paths_culog
   hs-source-dirs:
       src
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  default-extensions:
+      NoImplicitPrelude
+      ImportQualifiedPost
+      OverloadedStrings
+      LambdaCase
+      BlockArguments
+      ViewPatterns
+      BangPatterns
   build-depends:
       base >=4.7 && <5
+    , containers
+    , logict
+    , megaparsec
+    , mtl
+    , relude
   default-language: Haskell2010
 
 executable culog-exe
@@ -41,10 +57,23 @@ executable culog-exe
       Paths_culog
   hs-source-dirs:
       app
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  default-extensions:
+      NoImplicitPrelude
+      ImportQualifiedPost
+      OverloadedStrings
+      LambdaCase
+      BlockArguments
+      ViewPatterns
+      BangPatterns
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , culog
+    , logict
+    , megaparsec
+    , mtl
+    , relude
   default-language: Haskell2010
 
 test-suite culog-test
@@ -54,8 +83,21 @@ test-suite culog-test
       Paths_culog
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  default-extensions:
+      NoImplicitPrelude
+      ImportQualifiedPost
+      OverloadedStrings
+      LambdaCase
+      BlockArguments
+      ViewPatterns
+      BangPatterns
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
     , culog
+    , logict
+    , megaparsec
+    , mtl
+    , relude
   default-language: Haskell2010

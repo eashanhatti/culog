@@ -7,13 +7,17 @@ import Text.Megaparsec hiding(parse, State)
 import Text.Megaparsec qualified as MP
 import Text.Megaparsec.Char
 import Data.Map qualified as M
+import Data.Char
+import Data.Maybe
 
-type Parser = ParsecT Void Text (State (Int, M.Map String Int))
+type Parser = ParsecT Void Text (State (Int, M.Map String Natural, M.Map String Int))
 
 ws = many (try (char '\n') <|> try (char '\r') <|> try (char '\t') <|> char ' ')
 
 parse :: String -> Text -> (Term, Int)
-parse fn t = second fst (flip runState (0, mempty) (fromRight undefined <$> (runParserT term fn t)))
+parse fn t =
+  let (tm, (mv, _, _)) = flip runState (0, mempty, mempty) (fromRight undefined <$> (runParserT term fn t))
+  in (tm, mv)
 
 term :: Parser Term
 term =
@@ -22,22 +26,19 @@ term =
     pure (BVar (read ix))) <|>
   try (do
     string "["; ws
+    name <-
+      try (do
+        name <- some alphaNumChar; ws
+        string ":"; ws
+        pure name) <|>
+      pure "_"
     inTy <- term; ws
+    string "]"; ws
     string "->"; ws
-    outTy <- term; ws
-    string "]"
+    modify \(mv, ctx, mc) -> (mv, M.insert name 0 (fmap (+1) ctx), mc)
+    outTy <- term
+    modify \(mv, ctx, mc) -> (mv, M.delete name (fmap (subtract 1) ctx), mc)
     pure (Pi inTy outTy)) <|>
-  -- try (do
-  --   string "["
-  --   inTys <- some do
-  --     ws
-  --     inTy <- term; ws
-  --     string "->"
-  --     pure inTy
-  --   ws
-  --   outTy <- term; ws
-  --   string "]"
-  --   pure (foldr Pi outTy inTys)) <|>
   try (do
     string "{"; ws
     body <- term; ws
@@ -55,10 +56,16 @@ term =
   (do
     c <- alphaNumChar
     cs <- many (try alphaNumChar <|> digitChar)
-    m <- snd <$> get
-    case M.lookup (c:cs) m of
-      Just mv -> pure (MVar mv)
-      Nothing -> do
-        mv <- fst <$> get
-        modify (first (+1))
-        pure (MVar mv))
+    if isUpper c then do
+      (_, _, m) <- get
+      case M.lookup (c:cs) m of
+        Just mv -> pure (MVar mv)
+        Nothing -> do
+          (mv, _, _) <- get
+          modify \(mv, ctx, mc) -> (mv + 1, ctx, mc)
+          pure (MVar mv)
+    else do
+      (_, ctx, _) <- get
+      case M.lookup (c:cs) ctx of
+        Just ix -> pure (BVar ix)
+        Nothing -> error (show (c:cs, ctx)))

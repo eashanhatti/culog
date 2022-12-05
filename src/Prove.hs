@@ -22,8 +22,8 @@ data ProveState = ProveState
 
 type Prove a = StateT ProveState Logic a
 
-runProve :: Int -> Prove a -> [(a, ProveState)]
-runProve mv = observeAll . flip runStateT (ProveState mv mempty mempty)
+runProve :: Int -> Int -> Prove a -> [(a, ProveState)]
+runProve n mv = observeMany n . flip runStateT (ProveState mv mempty mempty)
 
 type Assumptions = Seq S.Term
 
@@ -33,8 +33,12 @@ traceState msg act = do
   x <- {-trace (msg ++ ":\n    " ++ show s) -}act
   pure x
 
-solve :: Int -> S.Term -> Prove ()
-solve mv sol = modify \st -> st { unMetaCtx = IM.insert mv sol (unMetaCtx st) }
+solve :: Natural -> Int -> S.Term -> Prove ()
+solve lvl mv sol = do
+  st <- get
+  case IM.lookup mv (unMetaCtx st) of
+    Just sol' -> unify lvl sol sol'
+    Nothing -> put (st { unMetaCtx = IM.insert mv sol (unMetaCtx st) })
 
 delayProblem :: Int -> Int -> S.Term -> S.Term -> Prove ()
 delayProblem mv1 mv2 term1 term2 =
@@ -57,6 +61,23 @@ notMV :: S.Term -> Bool
 notMV (S.Neutral (S.MVar _) _) = False
 notMV _ = True
 
+occursCheck :: Natural -> Int -> S.Term -> Prove ()
+occursCheck lvl mv = \case
+  S.Pi inTy outTy -> do
+    occursCheck lvl mv inTy
+    occursCheck (lvl + 1) mv (outTy (S.BVar lvl))
+  S.Lam body -> occursCheck (lvl + 1) mv (body (S.BVar lvl))
+  S.Univ -> pure ()
+  S.BVar _ -> pure ()
+  S.Neutral (S.App lam arg) _ -> do
+    occursCheck lvl mv lam
+    occursCheck lvl mv arg
+  S.Neutral (S.MVar mv') _ ->
+    if mv == mv' then
+      empty
+    else
+      pure ()
+
 unify :: Natural -> S.Term -> S.Term -> Prove ()
 unify lvl term1 term2 = do
   mc <- unMetaCtx <$> get
@@ -66,22 +87,24 @@ unify lvl term1 term2 = do
         | bLvl1 == bLvl2
         , length args1 == length args2
         -> traverse_ (uncurry (unify lvl)) (zip args1 args2)
-      (redex -> (S.Neutral (S.MVar mv1) _, args1), redex -> (S.Neutral (S.MVar mv2) _, args2))
-        | mv1 == mv2
-        , length args1 == length args2
-        -> traverse_ (uncurry (unify lvl)) (zip args1 args2)
+      -- (redex -> (S.Neutral (S.MVar mv1) _, args1), redex -> (S.Neutral (S.MVar mv2) _, args2))
+      --   | mv1 == mv2
+      --   , length args1 == length args2
+      --   -> traverse_ (uncurry (unify lvl)) (zip args1 args2)
       (redex -> (S.Neutral (S.MVar mv) _, args1), redex -> (lam, args2))
         | length args1 == length args2
         , notMV lam
         -> do
+          occursCheck lvl mv term2
           traverse_ (uncurry (unify lvl)) (zip args1 args2)
-          solve mv lam
+          solve lvl mv lam
       (redex -> (lam, args1), redex -> (S.Neutral (S.MVar mv) _, args2))
         | length args1 == length args2
         , notMV lam
         -> do
+          occursCheck lvl mv term1
           traverse_ (uncurry (unify lvl)) (zip args1 args2)
-          solve mv lam
+          solve lvl mv lam
       (redex -> (S.Neutral (S.MVar mv1) _, args1), redex -> (S.Neutral (S.MVar mv2) _, args2))
         | length args1 == length args2
         -> delayProblem mv1 mv2 term1 term2
@@ -102,7 +125,7 @@ unify lvl term1 term2 = do
       _ -> empty
 
 prove :: Assumptions -> S.Context -> S.Term -> Prove ()
-prove asps ctx goal = traceState ("prove" ++ show goal) $
+prove asps ctx goal =
   asum (fmap (search asps ctx goal) asps) <|>
   do
     mc <- unMetaCtx <$> get
@@ -113,7 +136,7 @@ prove asps ctx goal = traceState ("prove" ++ show goal) $
       _ -> empty
 
 search :: Assumptions -> S.Context -> S.Term -> S.Term -> Prove ()
-search asps ctx goal asp = traceState ("search" ++ show asp ++ show goal) $
+search asps ctx goal asp =
   unify (fromIntegral (length ctx)) goal asp <|>
   do
     mc <- unMetaCtx <$> get

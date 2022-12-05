@@ -41,7 +41,11 @@ term =
     pure (Pi inTy outTy)) <|>
   try (do
     string "{"; ws
+    name <- some alphaNumChar; ws
+    string "."; ws
+    modify \(mv, ctx, mc) -> (mv, M.insert name 0 (fmap (+1) ctx), mc)
     body <- term; ws
+    modify \(mv, ctx, mc) -> (mv, M.delete name (fmap (subtract 1) ctx), mc)
     string "}"
     pure (Lam body)) <|>
   try (do
@@ -51,7 +55,7 @@ term =
     string ")"
     pure (foldl' (\acc arg -> App acc arg) lam args)) <|>
   try (do
-    string "U"
+    string "*"
     pure Univ) <|>
   (do
     c <- alphaNumChar

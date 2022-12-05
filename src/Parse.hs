@@ -6,6 +6,7 @@ import Syntax.Core
 import Text.Megaparsec hiding(parse, State)
 import Text.Megaparsec qualified as MP
 import Text.Megaparsec.Char
+import Text.Megaparsec.Error
 import Data.Map qualified as M
 import Data.Char
 import Data.Maybe
@@ -14,16 +15,17 @@ type Parser = ParsecT Void Text (State (Int, M.Map String Natural, M.Map String 
 
 ws = many (try (char '\n') <|> try (char '\r') <|> try (char '\t') <|> char ' ')
 
+reportError = \case
+  Right x -> x
+  Left e -> error (toText (errorBundlePretty e))
+
 parse :: String -> Text -> (Term, Int)
 parse fn t =
-  let (tm, (mv, _, _)) = flip runState (0, mempty, mempty) (fromRight undefined <$> (runParserT term fn t))
+  let (tm, (mv, _, _)) = flip runState (0, mempty, mempty) (reportError <$> (runParserT term fn t))
   in (tm, mv)
 
 term :: Parser Term
 term =
-  try (do
-    ix <- some digitChar
-    pure (BVar (read ix))) <|>
   try (do
     string "["; ws
     name <-
@@ -73,3 +75,4 @@ term =
       case M.lookup (c:cs) ctx of
         Just ix -> pure (BVar ix)
         Nothing -> error (show (c:cs, ctx)))
+

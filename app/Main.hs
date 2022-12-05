@@ -15,4 +15,5 @@ run n s =
 
 runFile n fn = do
   s <- TIO.readFile fn
+  TIO.putStrLn "Parsed file..."
   pure (run n s)

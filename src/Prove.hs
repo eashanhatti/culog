@@ -23,7 +23,16 @@ data ProveState = ProveState
 type Prove a = StateT ProveState Logic a
 
 runProve :: Int -> Int -> Prove a -> [(a, ProveState)]
-runProve n mv = observeMany n . flip runStateT (ProveState mv mempty mempty)
+runProve n mv act =
+  observeMany n
+  -- observeAll
+    (flip runStateT (ProveState mv mempty mempty) do
+      x <- act
+      d <- unDelayed <$> get
+      if M.size d > 0 then
+        empty
+      else
+        pure x)
 
 type Assumptions = Seq S.Term
 
@@ -81,6 +90,8 @@ occursCheck lvl mv = \case
 unify :: Natural -> S.Term -> S.Term -> Prove ()
 unify lvl term1 term2 = do
   mc <- unMetaCtx <$> get
+  delayed <- unDelayed <$> get
+  forM delayed (uncurry (unify lvl))
   traceState ("unify" ++ show term1 ++ " === " ++ show term2) $
     case (term1, term2) of
       (redex -> (S.BVar bLvl1, args1), redex -> (S.BVar bLvl2, args2))

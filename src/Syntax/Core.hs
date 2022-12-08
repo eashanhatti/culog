@@ -3,10 +3,10 @@ module Syntax.Core where
 import Relude
 
 data Term
-  = Pi Term Term
-  | Lam Term
+  = Pi Text Term Term
+  | Lam Text Term
   | App Term Term
   | Univ
-  | BVar Natural
-  | MVar Int
+  | BVar Text Natural
+  | MVar Text Int
   deriving (Show)

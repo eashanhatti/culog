@@ -3,7 +3,7 @@
 [b:t] ->
 [p : [t] -> *] ->
 [eq : [t] -> [t] -> *] ->
-[subst : [x:t] -> [y:t] -> [q : [t] -> *] -> [(eq x y)] -> [(q x)] -> (q y)] ->
-[(p a)] ->
-[(eq a b)] ->
+[subst : [x:t] -> [y:t] -> [q : [t] -> *] -> [prf:(eq x y)] -> [substprop:(q x)] -> (q y)] ->
+[prop : (p a)] ->
+[evidence : (eq a b)] ->
 (p b)

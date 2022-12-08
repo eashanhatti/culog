@@ -12,23 +12,23 @@ type Context = Seq Term
 type Level = Natural
 
 data Term
-  = Pi Term (Term -> Term)
-  | Lam (Term -> Term)
+  = Pi Text Term (Term -> Term)
+  | Lam Text (Term -> Term)
   | Univ
-  | BVar Natural
+  | BVar Text Natural
   | Neutral Redex (MetaContext -> Maybe Term)
 
 instance Prelude.Show Term where
   show = show' 0 where
     show' lvl = \case
-      Pi inTy outTy -> "(Pi " ++ show' lvl inTy ++ " " ++ show' (lvl + 1) (outTy (BVar lvl)) ++ ")"
-      Lam body -> "(Lam " ++ show' (lvl + 1) (body (BVar lvl))
+      Pi name inTy outTy -> "(Pi " ++ show name ++ " " ++ show' lvl inTy ++ " " ++ show' (lvl + 1) (outTy (BVar name lvl)) ++ ")"
+      Lam name body -> "(Lam " ++ show name ++ " " ++ show' (lvl + 1) (body (BVar name lvl))
       Univ -> "Univ"
-      BVar bLvl -> "(BVar " ++ show bLvl ++ ")"
-      Neutral (MVar mv) _ -> "(MVar " ++ show mv ++ ")"
+      BVar name bLvl -> "(BVar " ++ show name ++ " " ++ show bLvl ++ ")"
+      Neutral (MVar name mv) _ -> "(MVar " ++ show name ++ " " ++ show mv ++ ")"
       Neutral (App lam arg) _ -> "(App " ++ show' lvl lam ++ " " ++ show' lvl arg ++ ")"
 
 data Redex
-  = MVar Int
+  = MVar Text Int
   | App Term Term
   deriving (Show)

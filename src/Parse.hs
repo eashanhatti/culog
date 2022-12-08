@@ -5,13 +5,14 @@ import Relude hiding(some, many)
 import Syntax.Core
 import Text.Megaparsec hiding(parse, State)
 import Text.Megaparsec qualified as MP
+import Data.Sequence(Seq((:<|)), (|>))
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Data.Map qualified as M
 import Data.Char
 import Data.Maybe
 
-type Parser = ParsecT Void Text (State (Int, M.Map String Natural, M.Map String Int))
+type Parser = ParsecT Void Text (ReaderT (M.Map String Natural) (State (Int, M.Map String Int)))
 
 ws = many (try (char '\n') <|> try (char '\r') <|> try (char '\t') <|> char ' ')
 
@@ -19,37 +20,35 @@ reportError = \case
   Right x -> x
   Left e -> error (toText (errorBundlePretty e))
 
-parse :: String -> Text -> (Term, Int)
+parse :: String -> Text -> (Term, (Int, M.Map Text Int))
 parse fn t =
-  let (tm, (mv, _, _)) = flip runState (0, mempty, mempty) (reportError <$> (runParserT term fn t))
-  in (tm, mv)
+  second
+    (second (M.mapKeys toText))
+    (flip runState (0, mempty) (flip runReaderT mempty (reportError <$> (runParserT term fn t))))
 
 term :: Parser Term
 term =
   try (do
     string "["; ws
+    mv <- fst <$> get
     name <-
       try (do
         name <- some alphaNumChar; ws
         string ":"; ws
         pure name) <|>
-      pure "_"
+      pure ("_" <> show mv)
     inTy <- term; ws
     string "]"; ws
     string "->"; ws
-    modify \(mv, ctx, mc) -> (mv, M.insert name 0 (fmap (+1) ctx), mc)
-    outTy <- term
-    modify \(mv, ctx, mc) -> (mv, M.delete name (fmap (subtract 1) ctx), mc)
-    pure (Pi inTy outTy)) <|>
+    outTy <- local (M.insert name 0 . fmap (+1)) term
+    pure (Pi (toText name) inTy outTy)) <|>
   try (do
     string "{"; ws
     name <- some alphaNumChar; ws
     string "."; ws
-    modify \(mv, ctx, mc) -> (mv, M.insert name 0 (fmap (+1) ctx), mc)
-    body <- term; ws
-    modify \(mv, ctx, mc) -> (mv, M.delete name (fmap (subtract 1) ctx), mc)
+    body <- local (M.insert name 0 . fmap (+1)) term; ws
     string "}"
-    pure (Lam body)) <|>
+    pure (Lam (toText name) body)) <|>
   try (do
     string "("; ws
     lam <- term
@@ -63,16 +62,33 @@ term =
     c <- alphaNumChar
     cs <- many (try alphaNumChar <|> digitChar)
     if isUpper c then do
-      (_, _, m) <- get
+      (_, m) <- get
       case M.lookup (c:cs) m of
-        Just mv -> pure (MVar mv)
+        Just mv -> pure (MVar (toText (c:cs)) mv)
         Nothing -> do
-          (mv, _, _) <- get
-          modify \(mv, ctx, mc) -> (mv + 1, ctx, mc)
-          pure (MVar mv)
+          (mv, _) <- get
+          modify \(mv, mc) -> (mv + 1, mc)
+          pure (MVar (toText (c:cs)) mv)
     else do
-      (_, ctx, _) <- get
+      ctx <- ask
       case M.lookup (c:cs) ctx of
-        Just ix -> pure (BVar ix)
+        Just ix -> pure (BVar (toText (c:cs)) ix)
         Nothing -> error (show (c:cs, ctx)))
 
+apps :: Term -> (Term, Seq Term)
+apps = \case
+  App lam arg ->
+    let (lam', args) = apps lam
+    in (lam', args |> arg)
+  tm -> (tm, mempty)
+
+prettyPrint :: Term -> Text
+prettyPrint = \case
+  Pi name inTy outTy ->
+    "[" <> name <> " : " <> prettyPrint inTy <> "] -> " <> prettyPrint outTy
+  Lam name body -> "{" <> name <> ". " <> prettyPrint body <> "}"
+  (apps -> (lam, arg :<| args)) ->
+    "(" <> prettyPrint lam <> " " <> foldl' (\acc arg -> acc <> " " <> prettyPrint arg) (prettyPrint arg) args <> ")"
+  Univ -> "*"
+  BVar name _ -> name
+  MVar name _ -> name

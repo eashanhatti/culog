@@ -1,0 +1,7 @@
+[nat:*] ->
+[z:nat] ->
+[s: [nat] -> nat] ->
+[add : [nat] -> [nat] -> [nat] -> *] ->
+[[n:nat] -> (add z n n)] ->
+[[n:nat] -> [m:nat] -> [j:nat] -> [(add n m j)] -> (add (s n) m (s j))] ->
+(add z z X))

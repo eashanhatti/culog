@@ -1,6 +1,7 @@
 module Syntax.Value where
 
 open import Data.List
+open import Data.Maybe
 open import Syntax.Common
 open import Data.Nat
 import Syntax.Core as C
@@ -18,7 +19,7 @@ data Type : Set where
 data Term where
     var : DBLevel -> Term
     fun-intro : List Term -> ℕ -> C.Term -> Term
-    neutral : Redex -> Term
+    neutral : Redex -> Maybe Term -> Term
 
 data FunElimHead : Set where
     mv-head : MVName -> FunElimHead

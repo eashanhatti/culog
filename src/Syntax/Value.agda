@@ -4,7 +4,7 @@ open import Data.List
 open import Data.Maybe
 open import Syntax.Common
 open import Data.Nat
-import Syntax.Core as C
+import Syntax.Core as C 
 
 DBLevel : Set
 DBLevel = ℕ
@@ -17,7 +17,6 @@ data Type : Set where
     el : Term -> Type
 
 data Term where
-    var : DBLevel -> Term
     fun-intro : List Term -> ℕ -> C.Term -> Term
     neutral : Redex -> Maybe Term -> Term
 

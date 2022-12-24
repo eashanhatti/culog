@@ -9,15 +9,10 @@ import Syntax.Core as C
 DBLevel : Set
 DBLevel = ℕ
 
-data Term : Set
 data Redex : Set
 
-data Type : Set where
-    fun-type : Type -> Type -> Type
-    el : Term -> Type
-
-data Term where
-    fun-intro : List Term -> ℕ -> C.Term -> Term
+data Term : Set where
+    fun-intros : List Term -> ℕ -> C.Term -> Term
     neutral : Redex -> Maybe Term -> Term
 
 data FunElimHead : Set where

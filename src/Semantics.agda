@@ -1,7 +1,7 @@
 module Semantics where
 
-import Syntax.Core as C
-import Syntax.Value as V
+open import Syntax.Core as C
+open import Syntax.Value as V
 open import Data.Maybe hiding(map)
 open import Data.List hiding(lookup)
 open import Data.Nat
@@ -10,6 +10,14 @@ open import Data.Nat.Base
 open import Data.Nat.Properties
 open import Data.Tree.AVL.Map (<-strictTotalOrder) hiding(map)
 open import Data.Product hiding(map)
+
+MEnv : Set
+MEnv = Map V.Term
+
+mempty = empty
+
+extend : Env -> Env
+extend env = V.var (length env) ∷ env
 
 lookupVar : C.DBIndex -> List V.Term -> Maybe V.Term
 lookupVar _ [] = nothing
@@ -28,14 +36,13 @@ funElimSpine (C.fun-elim lam arg) =
     in lam' , arg ∷ args
 funElimSpine term = term , []
 
-
 {-# TERMINATING #-}
-evaluate : Map V.Term -> List V.Term -> C.Term -> Maybe V.Term
+evaluate : MEnv -> List V.Term -> C.Term -> Maybe V.Term
 
-evalFunElim : Map V.Term -> V.Term -> List V.Term -> Maybe V.Term
+evalFunElim : MEnv -> V.Term -> List V.Term -> Maybe V.Term
 evalFunElim menv (V.fun-intros env n body) args = evaluate menv (args ++ env) body
 evalFunElim menv (V.neutral redex (just term)) args = evalFunElim menv term args
-evalFunElim _ (V.neutral redex nothing) args = nothing
+evalFunElim _ _ _ = nothing
 
 liftMaybe : {A : Set} -> List (Maybe A) -> Maybe (List A)
 liftMaybe [] = just []
@@ -45,9 +52,13 @@ liftMaybe (just x ∷ xs) = do
 liftMaybe (nothing ∷ _) = nothing
 
 evaluate _ env (C.var ix) = lookupVar ix env
+evaluate _ _ (C.type-type ul) = just (V.type-type ul)
 evaluate _ env (C.fun-intro term) =
     let n , body = bunchFunIntros term
     in just (V.fun-intros env n body)
+evaluate menv env (C.fun-type inTy outTy) = do
+    vInTy <- evaluate menv env inTy
+    just (V.fun-type vInTy env outTy)
 evaluate menv env (C.fun-elim lam arg) = do
     let lam' , args = funElimSpine lam
     args' <- liftMaybe (map (evaluate menv env) (arg ∷ reverse args))
@@ -76,7 +87,11 @@ headToTerm _ (V.mv-head mv) = just (C.metavar mv)
 
 {-# TERMINATING #-}
 readback : Unfolding -> V.DBLevel -> V.Term -> Maybe C.Term
+readback _ _ (V.type-type ul) = just (C.type-type ul)
 readback unf lvl (V.fun-intros _ n body) = just (iter n C.fun-intro body)
+readback unf lvl (V.fun-type inTy _ outTy) = do
+    cInTy <- readback unf lvl inTy
+    just (C.fun-type cInTy outTy)
 readback full lvl (V.neutral (V.fun-elims lam args) (just term)) = readback full lvl term
 readback zonk lvl (V.neutral (V.fun-elims (V.mv-head mv) args) (just term)) = readback zonk lvl term
 readback _ lvl (V.neutral (V.fun-elims lam args) _) = do

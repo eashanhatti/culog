@@ -11,13 +11,23 @@ DBLevel = ℕ
 
 data Redex : Set
 
-data Term : Set where
-    fun-intros : List Term -> ℕ -> C.Term -> Term
-    neutral : Redex -> Maybe Term -> Term
+data Term : Set
+
+Env : Set
+Env = List Term
+
+data Term where
+    fun-intros : (env : Env) (n : ℕ) (body : C.Term) -> Term
+    fun-type : (inTy : Term) (env : Env) (outTy : C.Term) -> Term
+    type-type : (ul : UnivLevel) -> Term
+    neutral : (redex : Redex) (reded : Maybe Term) -> Term
 
 data FunElimHead : Set where
-    mv-head : MVName -> FunElimHead
-    rv-head : DBLevel -> FunElimHead
+    mv-head : (mv : MVName) -> FunElimHead
+    rv-head : (lvl : DBLevel) -> FunElimHead
 
 data Redex where
-    fun-elims : FunElimHead -> List Term -> Redex
+    fun-elims : (head : FunElimHead) (args : List Term) -> Redex
+
+var : DBLevel -> Term
+var lvl = neutral (fun-elims (rv-head lvl) []) nothing

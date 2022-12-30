@@ -7,7 +7,9 @@ DBIndex : Set
 DBIndex = ℕ
 
 data Term : Set where
-    var : DBIndex -> Term
-    fun-intro : Term -> Term
-    fun-elim : Term -> Term -> Term
-    metavar : MVName -> Term
+    var : (ix : DBIndex) -> Term
+    fun-intro : (body : Term) -> Term
+    fun-elim : (lam : Term) (arg : Term) -> Term
+    fun-type : (inTy : Term) (outTy : Term) -> Term
+    type-type : (ul : UnivLevel) -> Term
+    metavar : (mv : MVName) -> Term

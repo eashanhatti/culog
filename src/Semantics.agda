@@ -12,9 +12,6 @@ open import Data.Tree.AVL.Map (<-strictTotalOrder) hiding(map)
 open import Data.Product hiding(map)
 open import Relation.Binary.PropositionalEquality hiding([_])
 
-MEnv : Set
-MEnv = Map V.Term
-
 mempty = empty
 
 extend : Env -> Env
@@ -38,21 +35,21 @@ funElimSpine (C.fun-elim lam arg) =
 funElimSpine term = term , []
 
 {-# TERMINATING #-}
-evaluate : MEnv -> List V.Term -> C.Term -> Maybe V.Term
+evaluate : List V.Term -> C.Term -> Maybe V.Term
 
 _==_ : ℕ -> ℕ -> Bool
 zero == zero = true
 suc n == suc m = n == m
 _ == _ = false
 
-evalFunElim : MEnv -> V.Term -> List V.Term -> Maybe V.Term
-evalFunElim menv (V.fun-intros env n _ body) args =
+evalFunElim : V.Term -> List V.Term -> Maybe V.Term
+evalFunElim (V.fun-intros env n _ body) args =
     if n == length args then
-        evaluate menv (args ++ env) body
+        evaluate (args ++ env) body
     else
         nothing
-evalFunElim menv (V.neutral redex (just term)) args = evalFunElim menv term args
-evalFunElim _ _ _ = nothing
+evalFunElim (V.neutral redex (just term)) args = evalFunElim term args
+evalFunElim _ _ = nothing
 
 liftMaybe : {A : Set} -> List (Maybe A) -> Maybe (List A)
 liftMaybe [] = just []
@@ -61,19 +58,19 @@ liftMaybe (just x ∷ xs) = do
     just (x ∷ xs')
 liftMaybe (nothing ∷ _) = nothing
 
-evaluate _ env (C.var ix) = lookupVar ix env
-evaluate _ _ (C.type-type ul) = just (V.type-type ul)
-evaluate _ env (C.fun-intro term) =
+evaluate env (C.var ix) = lookupVar ix env
+evaluate _ (C.type-type ul) = just (V.type-type ul)
+evaluate env (C.fun-intro term) =
     let n , body = bunchFunIntros term
     in just (V.fun-intros env (suc n) refl body)
-evaluate menv env (C.fun-type inTy outTy) = do
-    vInTy <- evaluate menv env inTy
+evaluate env (C.fun-type inTy outTy) = do
+    vInTy <- evaluate env inTy
     just (V.fun-type vInTy env outTy)
-evaluate menv env (C.fun-elim lam arg) = do
+evaluate env (C.fun-elim lam arg) = do
     let lam' , args = funElimSpine lam
-    args' <- liftMaybe (map (evaluate menv env) (arg ∷ reverse args))
-    lam'' <- evaluate menv env lam'
-    evalFunElim menv lam'' args'
+    args' <- liftMaybe (map (evaluate env) (arg ∷ reverse args))
+    lam'' <- evaluate env lam'
+    evalFunElim lam'' args'
 
 data Unfolding : Set where
     full : Unfolding

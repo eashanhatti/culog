@@ -4,7 +4,8 @@ open import Data.List
 open import Data.Maybe
 open import Syntax.Common
 open import Data.Nat
-import Syntax.Core as C 
+import Syntax.Core as C
+open import Relation.Binary.PropositionalEquality hiding([_])
 
 DBLevel : Set
 DBLevel = ℕ
@@ -17,13 +18,12 @@ Env : Set
 Env = List Term
 
 data Term where
-    fun-intros : (env : Env) (n : ℕ) (body : C.Term) -> Term
+    fun-intros : ∀{m} (env : Env) (n : ℕ) (eq : n ≡ suc m) (body : C.Term) -> Term
     fun-type : (inTy : Term) (env : Env) (outTy : C.Term) -> Term
     type-type : (ul : UnivLevel) -> Term
     neutral : (redex : Redex) (reded : Maybe Term) -> Term
 
 data FunElimHead : Set where
-    mv-head : (mv : MVName) -> FunElimHead
     rv-head : (lvl : DBLevel) -> FunElimHead
 
 data Redex where

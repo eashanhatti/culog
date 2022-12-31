@@ -10,6 +10,7 @@ open import Data.Nat.Base
 open import Data.Nat.Properties
 open import Data.Tree.AVL.Map (<-strictTotalOrder) hiding(map)
 open import Data.Product hiding(map)
+open import Relation.Binary.PropositionalEquality hiding([_])
 
 MEnv : Set
 MEnv = Map V.Term
@@ -39,8 +40,17 @@ funElimSpine term = term , []
 {-# TERMINATING #-}
 evaluate : MEnv -> List V.Term -> C.Term -> Maybe V.Term
 
+_==_ : ℕ -> ℕ -> Bool
+zero == zero = true
+suc n == suc m = n == m
+_ == _ = false
+
 evalFunElim : MEnv -> V.Term -> List V.Term -> Maybe V.Term
-evalFunElim menv (V.fun-intros env n body) args = evaluate menv (args ++ env) body
+evalFunElim menv (V.fun-intros env n _ body) args =
+    if n == length args then
+        evaluate menv (args ++ env) body
+    else
+        nothing
 evalFunElim menv (V.neutral redex (just term)) args = evalFunElim menv term args
 evalFunElim _ _ _ = nothing
 
@@ -55,7 +65,7 @@ evaluate _ env (C.var ix) = lookupVar ix env
 evaluate _ _ (C.type-type ul) = just (V.type-type ul)
 evaluate _ env (C.fun-intro term) =
     let n , body = bunchFunIntros term
-    in just (V.fun-intros env n body)
+    in just (V.fun-intros env (suc n) refl body)
 evaluate menv env (C.fun-type inTy outTy) = do
     vInTy <- evaluate menv env inTy
     just (V.fun-type vInTy env outTy)
@@ -64,13 +74,9 @@ evaluate menv env (C.fun-elim lam arg) = do
     args' <- liftMaybe (map (evaluate menv env) (arg ∷ reverse args))
     lam'' <- evaluate menv env lam'
     evalFunElim menv lam'' args'
-evaluate menv env (C.metavar mv) with lookup menv mv
-... | just sol = just (V.neutral (V.fun-elims (V.mv-head mv) []) (just sol))
-... | nothing = just (V.neutral (V.fun-elims (V.mv-head mv) []) nothing)
 
 data Unfolding : Set where
     full : Unfolding
-    zonk : Unfolding
     none : Unfolding
 
 iter : {A : Set} -> ℕ -> (A -> A) -> A -> A
@@ -83,17 +89,15 @@ headToTerm lvl (V.rv-head lvl') =
         just (C.var (lvl ∸ lvl' ∸ 1))
     else
         nothing
-headToTerm _ (V.mv-head mv) = just (C.metavar mv)
 
 {-# TERMINATING #-}
 readback : Unfolding -> V.DBLevel -> V.Term -> Maybe C.Term
 readback _ _ (V.type-type ul) = just (C.type-type ul)
-readback unf lvl (V.fun-intros _ n body) = just (iter n C.fun-intro body)
+readback unf lvl (V.fun-intros _ n _ body) = just (iter n C.fun-intro body)
 readback unf lvl (V.fun-type inTy _ outTy) = do
     cInTy <- readback unf lvl inTy
     just (C.fun-type cInTy outTy)
 readback full lvl (V.neutral (V.fun-elims lam args) (just term)) = readback full lvl term
-readback zonk lvl (V.neutral (V.fun-elims (V.mv-head mv) args) (just term)) = readback zonk lvl term
 readback _ lvl (V.neutral (V.fun-elims lam args) _) = do
     lam' <- headToTerm lvl lam
     cArgs <- liftMaybe (map (readback none lvl) args)

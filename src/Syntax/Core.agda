@@ -12,4 +12,3 @@ data Term : Set where
     fun-elim : (lam : Term) (arg : Term) -> Term
     fun-type : (inTy : Term) (outTy : Term) -> Term
     type-type : (ul : UnivLevel) -> Term
-    metavar : (mv : MVName) -> Term

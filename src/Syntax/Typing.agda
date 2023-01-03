@@ -13,19 +13,19 @@ data Context : Set where
     ∙ : Context
     _,_∶_ : (ctx : Context) (tm : V.Term) (ty : V.Term) → Context
 
-ctxToEnv : Context → Env
-ctxToEnv ∙ = []
-ctxToEnv (Γ , tm ∶ _) = tm ∷ ctxToEnv Γ
+ctx→env : Context → Env
+ctx→env ∙ = []
+ctx→env (Γ , tm ∶ _) = tm ∷ ctx→env Γ
 
 _,_ : Context → V.Term → Context
-Γ , ty = Γ , (V.var (length (ctxToEnv Γ))) ∶ ty
+Γ , ty = Γ , (V.var (length (ctx→env Γ))) ∶ ty
 
 variable
     Γ Δ : Context
 
 data _⊢_∶_ : Context → C.Term → V.Term → Set
 
-evaluateIsJust : ∀{ty} → (ctm : C.Term) → Γ ⊢ ctm ∶ ty → ∃[ vtm ] (evaluate (ctxToEnv Γ) ctm ≡ just vtm)
+evaluateIsJust : ∀{ty} → (ctm : C.Term) → Γ ⊢ ctm ∶ ty → ∃[ vtm ] (evaluate (ctx→env Γ) ctm ≡ just vtm)
 safeEvaluate : ∀{ty} → (Γ : Context) → (tm : C.Term) → Γ ⊢ tm ∶ ty → V.Term
 
 data _⊢_∼_ : Context → V.Term → V.Term → Set where
@@ -48,14 +48,14 @@ data _⊢_∶_ where
     type-fun-intro : ∀{ul body inTy outTy}
                      (typeOutTy : (Γ , inTy) ⊢ outTy ∶ V.type-type ul)
                      (typeBody : (Γ , inTy) ⊢ body ∶ safeEvaluate (Γ , inTy) outTy typeOutTy) →
-                     Γ ⊢ C.fun-intro body ∶ V.fun-type inTy (ctxToEnv Γ) outTy
+                     Γ ⊢ C.fun-intro body ∶ V.fun-type inTy (ctx→env Γ) outTy
     type-fun-type : ∀{inTy outTy ul1 ul2}
                      (typeInTy : Γ ⊢ inTy ∶ V.type-type ul1)
                      (typeOutTy : (Γ , safeEvaluate Γ inTy typeInTy) ⊢ outTy ∶ V.type-type ul2) →
                      Γ ⊢ C.fun-type inTy outTy ∶ V.type-type (ul1 ⊔ ul2)
     type-fun-elim : ∀{ul lam arg inTy outTy}
                      (typeOutTy : {arg' : V.Term} → (Γ , arg' ∶ inTy) ⊢ outTy ∶ V.type-type ul)
-                     (typeLam : Γ ⊢ lam ∶ V.fun-type inTy (ctxToEnv Γ) outTy)
+                     (typeLam : Γ ⊢ lam ∶ V.fun-type inTy (ctx→env Γ) outTy)
                      (typeArg : Γ ⊢ arg ∶ inTy) →
                      Γ ⊢ C.fun-elim lam arg ∶ safeEvaluate (Γ , safeEvaluate Γ arg typeArg ∶ inTy) outTy typeOutTy
     conversion : ∀{tm ty ty'}
@@ -67,20 +67,20 @@ data _⊢_∶_ where
 >>=just≡ refl = refl
 
 evaluateIsJust {ty = ty} (C.var ix) (type-var {Γ} hv) = help ix hv where
-    help : ∀{Γ} → (ix : DBIndex) → HasVar Γ ix ty → ∃[ vtm ] (evaluate (ctxToEnv Γ) (C.var ix) ≡ just vtm)
+    help : ∀{Γ} → (ix : DBIndex) → HasVar Γ ix ty → ∃[ vtm ] (evaluate (ctx→env Γ) (C.var ix) ≡ just vtm)
     help {Γ} zero (hv-here {Δ} {def = def} conv) = def P, refl
     help (suc ix) (hv-there hv) = help ix hv
 evaluateIsJust {Γ} (C.fun-intro body) (type-fun-intro typeOutTy typeBody) =
     let n P, body' = bunchFunIntros body
-    in V.fun-intros (ctxToEnv Γ) (suc n) refl body' P, refl
+    in V.fun-intros (ctx→env Γ) (suc n) refl body' P, refl
 evaluateIsJust (C.fun-elim lam arg) (type-fun-elim typeOutTy typeLam typeArg) =
     let
         lam' P, args = funElimSpine lam
 
-    in V.neutral (V.fun-elims {!   !} {!   !}) {!   !} P, {!  !}
+    in V.neutral (V.fun-elims {!   !} {!   !}) {!   !} P, {! !}
 evaluateIsJust {Γ} (C.fun-type inTy outTy) (type-fun-type typeInTy typeOutTy) =
     let vInTy P, eq = evaluateIsJust inTy typeInTy
-    in V.fun-type vInTy (ctxToEnv Γ) outTy P, >>=just≡ eq
+    in V.fun-type vInTy (ctx→env Γ) outTy P, >>=just≡ eq
 evaluateIsJust (C.type-type ul) type-type-type = V.type-type ul P, refl
 evaluateIsJust tm (conversion conv typeTm) = evaluateIsJust tm typeTm
 
